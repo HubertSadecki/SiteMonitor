@@ -1,0 +1,56 @@
+version: "3.9"
+services:
+  redis:
+    build: docker/redis
+    expose:
+      - ${REDIS_PORT}
+
+  composer:
+    build: docker/php
+    working_dir: /var/www/SiteMonitor
+    volumes:
+      - .:/var/www/SiteMonitor
+      - composer-cache-volume:/tmp/cache
+    entrypoint: composer install
+
+  db:
+    build: docker/mysql
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db-volume:/var/lib/mysql
+    expose:
+      - ${DB_PORT}
+    restart: always
+
+  php:
+    build: docker/php
+    working_dir: /var/www/SiteMonitor
+    volumes:
+      - .:/var/www/SiteMonitor
+      - composer-cache-volume:/tmp/cache
+      - sock-volume:/sock
+    restart: always
+    depends_on:
+      - db
+      - composer
+      - redis
+
+  backend:
+    build: docker/nginx
+    volumes:
+      - .:/var/www/SiteMonitor
+      - sock-volume:/sock
+    ports:
+      - ${DOCKER_API_PORT}:80
+    restart: always
+    depends_on:
+      - php
+
+volumes:
+  composer-cache-volume:
+  sock-volume:
+  db-volume:
